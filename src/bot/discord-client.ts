@@ -16,12 +16,16 @@ export class DiscordBot {
             ],
         });
 
-        this.setupEvenHandlers(token);
+        this.setupEventHandlers(token);
     }
 
-    private setupEvenHandlers(token: string): void {
+    private setupEventHandlers(token: string): void {
         this.client.on("ready", () => {
-            console.log(`Discord bot logged in as ${this.client.user?.tag})`);
+            console.log(`Discord bot logged in as ${this.client.user?.tag}`);
+        });
+
+        this.client.on('messageCreate', (message) => {
+            this.handleMessage(message);
         });
 
         this.client.login(token);
