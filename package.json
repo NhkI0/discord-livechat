@@ -2,9 +2,14 @@
   "name": "discord-livechat",
   "version": "1.0.0",
   "description": "A cross-platform desktop application that displays images and videos from a Discord channel in real-time.",
-  "main": "index.js",
+  "main": "dist/main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "watch": "tsc -w",
+    "start": "npm run build && electron .",
+    "dev": "nodemon --watch src --ext ts --exec \"npm run start\"",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
   },
   "keywords": [],
   "author": "Dopamine",
@@ -26,5 +31,25 @@
     "discord.js": "^14.25.1",
     "dotenv": "^17.2.3",
     "ws": "^8.18.3"
+  },
+  "build": {
+    "appId": "com.livechat.discord",
+    "productName": "Discord Livechat",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"]
+    }
   }
 }
