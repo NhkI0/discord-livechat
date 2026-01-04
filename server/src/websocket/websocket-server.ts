@@ -6,23 +6,27 @@ export class LivechatWebSocketServer {
     private clients: Set<WebSocket> = new Set();
 
     constructor(port: number) {
-        this.wss = new WebSocketServer({ port: port });
+        this.wss = new WebSocketServer({
+            port: port,
+            host: '0.0.0.0' // Listen on all network interfaces
+        });
         this.setupEventHandlers();
-        console.log("Listening on port " + port);
+        console.log(`✅ WebSocket server running on 0.0.0.0:${port}`);
+        console.log(`📡 External access: ws://YOUR_VPS_IP:${port}`);
     }
 
     private setupEventHandlers(): void {
         this.wss.on('connection', (ws: WebSocket) => {
-            console.log('Websocket connection connected');
+            console.log('🔗 New client connected');
             this.clients.add(ws);
 
             ws.on('close', () => {
-                console.log('Websocket connection disconnected');
+                console.log('❌ Client disconnected');
                 this.clients.delete(ws);
             });
 
             ws.on('error', (err: Error) => {
-                console.error('Websocket error', err);
+                console.error('WebSocket error:', err);
                 this.clients.delete(ws);
             });
 
@@ -39,7 +43,7 @@ export class LivechatWebSocketServer {
             }
         });
 
-        console.log(`Broadcasted ${message.type} to ${this.clients.size} client(s)`);
+        console.log(`📤 Broadcasted ${message.type} to ${this.clients.size} client(s)`);
     }
 
     public close(): void {

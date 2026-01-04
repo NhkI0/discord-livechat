@@ -1,0 +1,27 @@
+{
+  "name": "discord-livechat-server",
+  "version": "1.0.0",
+  "description": "Discord Livechat Server - Runs on VPS to relay Discord media",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "nodemon --watch src --ext ts --exec \"npm run build && npm start\""
+  },
+  "keywords": ["discord", "websocket", "server"],
+  "author": "Dopamine",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "@types/ws": "^8.18.1",
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "discord.js": "^14.25.1",
+    "dotenv": "^17.2.3",
+    "ws": "^8.18.3"
+  }
+}
