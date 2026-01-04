@@ -21,10 +21,6 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '../src/renderer/index.html'));
 
-  // Uncomment for debugging
-  // mainWindow.webContents.openDevTools();
-
-  // Make window click-through (mouse events pass through transparent areas)
   mainWindow.setIgnoreMouseEvents(true, { forward: true });
 
   mainWindow.on('closed', () => {
@@ -33,7 +29,15 @@ function createWindow() {
 }
 
 function createTray() {
-  const iconPath = path.join(__dirname, '../assets/tray-icon.png');
+  // In development: __dirname is dist/, icon is at ../assets/tray-icon.png
+  // In production: __dirname is resources/app.asar or resources/app/dist
+  let iconPath: string;
+
+  if (app.isPackaged) {
+    iconPath = path.join(process.resourcesPath, 'assets', 'tray-icon.png');
+  } else {
+    iconPath = path.join(__dirname, '../assets/tray-icon.png');
+  }
 
   let trayIcon;
   try {
@@ -85,8 +89,6 @@ app.on('ready', () => {
 });
 
 app.on('window-all-closed', () => {
-  // Don't quit on Windows/Linux - keep running in tray
-  // Only quit on macOS (standard macOS behavior)
   if (process.platform === 'darwin') {
     app.quit();
   }

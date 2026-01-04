@@ -32,8 +32,15 @@
     "files": [
       "dist/**/*",
       "src/renderer/**/*",
-      "assets/**/*",
+      "config.js",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": ["**/*"]
+      }
     ],
     "win": {
       "target": "nsis"
