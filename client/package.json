@@ -32,6 +32,7 @@
     "files": [
       "dist/**/*",
       "src/renderer/**/*",
+      "assets/**/*",
       "package.json"
     ],
     "win": {
