@@ -14,6 +14,10 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -23,6 +27,9 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '../src/renderer/index.html'));
   // mainWindow.webContents.openDevTools(); // Remove in production
+
+  // Make window click-through (mouse events pass through transparent areas)
+  mainWindow.setIgnoreMouseEvents(true, { forward: true });
 
   mainWindow.on('closed', () => {
     mainWindow = null;

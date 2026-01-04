@@ -40,15 +40,17 @@ export class DiscordBot {
         // Handle attachments (images/videos)
         if (message.attachments.size > 0) {
             message.attachments.forEach((attachment: Attachment) => {
-                const mediaMessage = this.processAttachment(attachment, message.author.username);
+                const mediaMessage = this.processAttachment(
+                    attachment,
+                    message.author.username,
+                    message.content // Include text content with media
+                );
                 if (mediaMessage && this.onMediaCallBack) {
                     this.onMediaCallBack(mediaMessage);
                 }
             });
-        }
-
-        // Handle text messages (optional)
-        if (message.content && this.onMediaCallBack) {
+        } else if (message.content && this.onMediaCallBack) {
+            // Only send standalone text if there are no attachments
             const textMessage: MediaMessage = {
                 type: 'text',
                 content: message.content,
@@ -59,7 +61,7 @@ export class DiscordBot {
         }
     }
 
-    private processAttachment(attachment: Attachment, author: string): MediaMessage | null {
+    private processAttachment(attachment: Attachment, author: string, content?: string): MediaMessage | null {
         const imageExtensions = ["png", "jpg", "jpeg", "gif", "webp"];
         const videoExtensions = ["mp4", "webm", "mov", "avi"];
 
@@ -69,6 +71,7 @@ export class DiscordBot {
             return {
                 type: 'image',
                 url: attachment.url,
+                content: content || undefined, // Include text if present
                 author,
                 timestamp: Date.now(),
                 filename: attachment.name,
@@ -77,6 +80,7 @@ export class DiscordBot {
             return {
                 type: 'video',
                 url: attachment.url,
+                content: content || undefined, // Include text if present
                 author,
                 timestamp: Date.now(),
                 filename: attachment.name,

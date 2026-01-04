@@ -13,9 +13,10 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1e1e1e;
+            background: transparent;
             color: #fff;
             overflow: hidden;
+            -webkit-app-region: no-drag;
         }
 
         #app{
@@ -25,136 +26,54 @@
             flex-direction: column;
         }
 
-        #header {
-            background: #2d2d30;
-            padding: 15px 20px;
-            border-bottom: #007acc solid 2px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        #status {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #4caf50;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
         #media-container {
             flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 0;
             position: relative;
+            pointer-events: none;
         }
 
         #current-media {
-            max-width: 90%;
-            max-height: 90%;
+            max-width: 100%;
+            max-height: 100%;
             object-fit: contain;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.5);
-            animation: fadeIn 0.5s ease-in;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: scale(0.9);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        @keyframes fadeOut {
-            from {
-                opacity: 1;
-                transform: scale(1);
-            }
-            to {
-                opacity: 0;
-                transform: scale(0.9);
-            }
-        }
-
-        .fade-out {
-            animation: fadeOut 0.5s ease-out forwards !important;
+            border-radius: 0;
+            box-shadow: none;
+            pointer-events: auto;
         }
 
         #text-overlay {
             position: absolute;
-            bottom: 40px;
+            bottom: 50px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            padding: 15px 30px;
-            border-radius: 25px;
-            max-width: 80%;
+            font-family: Impact, 'Arial Black', sans-serif;
+            font-size: 3em;
+            color: white;
             text-align: center;
-            animation: slideUp 0.4s ease-out;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateX(-50%) translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(-50%) translateY(0);
-            }
-        }
-
-        .author {
-            color: #007acc;
-            font-weight: bold;
-            margin-bottom: 5px;
+            max-width: 90%;
+            word-wrap: break-word;
+            text-transform: uppercase;
+            -webkit-text-stroke: 3px black;
+            text-stroke: 3px black;
+            paint-order: stroke fill;
+            pointer-events: none;
         }
 
         #placeholder {
-            text-align: center;
-            opacity: 0.5;
-        }
-
-        #placeholder h2 {
-            font-size: 2em;
-            margin-bottom: 10px;
+            display: none !important;
         }
     </style>
 </head>
 <body>
     <div id="app">
-        <div id="header">
-            <h1>Discord Livechat</h1>
-            <div id="status">
-                <div class="status-dot"></div>
-                <span id="status-text">Connected</span>
-            </div>
-        </div>
-        <div id="media-container">
-            <div id="placeholder">
-                <h2>Waiting for media...</h2>
-                <p>Send images or videos in the Discord channel</p>
-            </div>
-            <img id="current-media" style="display: none;" alt="Current media">
-            <div id="text-overlay" style="display: none;"></div>
-        </div>
+        <div id="media-container"></div>
+        <div id="placeholder"></div>
+        <div id="text-overlay"></div>
+        <span id="status-text" style="display: none;"></span>
     </div>
     <script src="../../dist/renderer/renderer.js"></script>
 </body>
