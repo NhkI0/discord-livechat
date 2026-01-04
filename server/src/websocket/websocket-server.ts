@@ -6,9 +6,13 @@ export class LivechatWebSocketServer {
     private clients: Set<WebSocket> = new Set();
 
     constructor(port: number) {
-        this.wss = new WebSocketServer({ port: port });
+        this.wss = new WebSocketServer({
+            port: port,
+            host: '0.0.0.0' // Listen on all network interfaces
+        });
         this.setupEventHandlers();
-        console.log(`✅ WebSocket server running on port ${port}`);
+        console.log(`✅ WebSocket server running on 0.0.0.0:${port}`);
+        console.log(`📡 External access: ws://YOUR_VPS_IP:${port}`);
     }
 
     private setupEventHandlers(): void {
