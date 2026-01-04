@@ -13,6 +13,9 @@ class LivechatRenderer {
   private textOverlay: HTMLDivElement;
   private placeholder: HTMLDivElement;
   private statusText: HTMLSpanElement;
+  private hideMediaTimeout: number | null = null;
+
+  private readonly IMAGE_DISPLAY_DURATION = 7000; // 7 seconds
 
   constructor() {
     this.textOverlay = document.getElementById('text-overlay') as HTMLDivElement;
@@ -72,6 +75,11 @@ class LivechatRenderer {
     this.mediaElement = img;
 
     this.showAuthor(message.author);
+
+    // Auto-hide after 7 seconds
+    this.hideMediaTimeout = window.setTimeout(() => {
+      this.hideMedia();
+    }, this.IMAGE_DISPLAY_DURATION);
   }
 
   private displayVideo(message: MediaMessage): void {
@@ -83,7 +91,12 @@ class LivechatRenderer {
     video.src = message.url!;
     video.controls = true;
     video.autoplay = true;
-    video.loop = true;
+    video.loop = false; // Don't loop - hide after playing once
+
+    // Hide video when it finishes playing
+    video.addEventListener('ended', () => {
+      this.hideMedia();
+    });
 
     const container = document.getElementById('media-container')!;
     container.appendChild(video);
@@ -115,7 +128,26 @@ class LivechatRenderer {
     }, 5000);
   }
 
+  private hideMedia(): void {
+    if (!this.mediaElement) return;
+
+    // Add fade-out animation
+    this.mediaElement.classList.add('fade-out');
+
+    // Wait for animation to complete, then remove
+    setTimeout(() => {
+      this.clearCurrentMedia();
+      this.placeholder.style.display = 'block';
+    }, 500); // Match fadeOut animation duration
+  }
+
   private clearCurrentMedia(): void {
+    // Clear any pending hide timeout
+    if (this.hideMediaTimeout) {
+      clearTimeout(this.hideMediaTimeout);
+      this.hideMediaTimeout = null;
+    }
+
     if (this.mediaElement) {
       this.mediaElement.remove();
       this.mediaElement = null;

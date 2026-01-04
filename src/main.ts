@@ -22,7 +22,7 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, '../src/renderer/index.html'));
-  mainWindow.webContents.openDevTools(); // Remove in production
+  // mainWindow.webContents.openDevTools(); // Remove in production
 
   mainWindow.on('closed', () => {
     mainWindow = null;
