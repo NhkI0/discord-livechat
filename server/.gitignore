@@ -11,7 +11,7 @@ release/
 *.js.map
 
 # Environment variables
-server/.env
+.env
 .env.local
 
 # IDE
