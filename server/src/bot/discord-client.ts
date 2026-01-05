@@ -61,11 +61,22 @@ export class DiscordBot {
     }
 
     private processAttachment(attachment: Attachment, author: string, content?: string): MediaMessage | null {
-        const imageExtensions = ["png", "jpg", "jpeg", "gif", "webp"];
+        const imageExtensions = ["png", "jpg", "jpeg", "gif", "webp", "jfif", "jpe"];
         const videoExtensions = ["mp4", "webm", "mov", "avi"];
 
         const extension = attachment.name?.split('.').pop()?.toLowerCase() || '';
 
+        // Debug log for JFIF files
+        if (extension === 'jfif' || attachment.name?.toLowerCase().includes('jfif')) {
+            console.log('📸 JFIF file detected:', {
+                filename: attachment.name,
+                extension: extension,
+                url: attachment.url,
+                contentType: attachment.contentType
+            });
+        }
+
+        // Check extension first
         if (imageExtensions.includes(extension)) {
             return {
                 type: 'image',
@@ -75,7 +86,26 @@ export class DiscordBot {
                 timestamp: Date.now(),
                 filename: attachment.name,
             };
-        } else if (videoExtensions.includes(extension)) {
+        }
+
+        // Fallback: Check MIME type for images (handles JFIF with wrong extension)
+        if (attachment.contentType?.startsWith('image/')) {
+            console.log('✨ Image detected by MIME type:', {
+                filename: attachment.name,
+                contentType: attachment.contentType,
+                extension: extension
+            });
+            return {
+                type: 'image',
+                url: attachment.url,
+                content: content || undefined,
+                author,
+                timestamp: Date.now(),
+                filename: attachment.name,
+            };
+        }
+
+        if (videoExtensions.includes(extension)) {
             return {
                 type: 'video',
                 url: attachment.url,
