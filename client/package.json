@@ -1,17 +1,21 @@
 {
   "name": "discord-livechat-client",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Discord Livechat Client - Display overlay for media from server",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc -p tsconfig.renderer.json",
     "watch": "tsc -w",
     "start": "npm run build && electron .",
     "dev": "nodemon --watch src --ext ts --exec \"npm run start\"",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },
-  "keywords": ["discord", "overlay", "client"],
+  "keywords": [
+    "discord",
+    "overlay",
+    "client"
+  ],
   "author": "Dopamine",
   "license": "ISC",
   "type": "commonjs",
@@ -39,7 +43,9 @@
       {
         "from": "assets",
         "to": "assets",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
@@ -49,7 +55,10 @@
       "target": "dmg"
     },
     "linux": {
-      "target": ["AppImage", "deb"]
+      "target": [
+        "AppImage",
+        "deb"
+      ]
     }
   }
 }
