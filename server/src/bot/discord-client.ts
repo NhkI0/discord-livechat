@@ -16,6 +16,7 @@ export class DiscordBot {
             }],
             status: 'online'
         });
+        console.log(`Successfully set status to: '${this.numberUsers} online'`)
     }
 
     constructor(token: string, channelId: string) {
