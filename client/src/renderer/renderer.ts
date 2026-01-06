@@ -24,6 +24,25 @@ class LivechatRenderer {
   constructor() {
     this.textOverlay = document.getElementById('text-overlay') as HTMLDivElement;
     this.connectWebSocket();
+    this.setupKeyboardShortcuts();
+  }
+
+  private setupKeyboardShortcuts(): void {
+    // Listen for skip-media IPC event from main process (global shortcuts)
+    if ((window as any).electronAPI) {
+      (window as any).electronAPI.onSkipMedia(() => {
+        console.log('📨 Received skip-media IPC event');
+        if (this.mediaElement) {
+          console.log('⏭️ Skipping current media via global keyboard shortcut');
+          this.hideMedia();
+        } else {
+          console.log('ℹ️ No media currently playing to skip');
+        }
+      });
+      console.log('✅ Keyboard shortcut listener registered in renderer');
+    } else {
+      console.error('❌ electronAPI not available - shortcuts will not work');
+    }
   }
 
   private connectWebSocket(): void {

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut } from 'electron';
 import * as path from 'path';
 
 let mainWindow: BrowserWindow | null = null;
@@ -56,6 +56,18 @@ function createTray() {
 
   const contextMenu = Menu.buildFromTemplate([
     {
+      label: 'Skip Current Media (PageDown/Insert)',
+      click: () => {
+        console.log('🎯 Skip media clicked from tray menu');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('skip-media');
+        }
+      }
+    },
+    {
+      type: 'separator'
+    },
+    {
       label: 'Show Window',
       click: () => {
         if (mainWindow) {
@@ -83,9 +95,43 @@ function createTray() {
   });
 }
 
+function registerGlobalShortcuts() {
+  const shortcuts = [
+    { key: 'PageDown', name: 'PageDown' },
+    { key: 'Insert', name: 'Insert' }
+  ];
+
+  const registered: string[] = [];
+  const failed: string[] = [];
+
+  shortcuts.forEach(({ key, name }) => {
+    const success = globalShortcut.register(key, () => {
+      console.log(`Global shortcut triggered: ${name} - skipping media`);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('skip-media');
+      }
+    });
+
+    if (success) {
+      registered.push(name);
+    } else {
+      failed.push(name);
+      console.error(`Failed to register global shortcut: ${name}`);
+    }
+  });
+
+  if (registered.length > 0) {
+    console.log(`Global keyboard shortcuts registered: ${registered.join(', ')}`);
+  }
+  if (failed.length > 0) {
+    console.warn(`Failed to register: ${failed.join(', ')}`);
+  }
+}
+
 app.on('ready', () => {
   createWindow();
   createTray();
+  registerGlobalShortcuts();
 });
 
 app.on('window-all-closed', () => {
@@ -101,6 +147,9 @@ app.on('activate', () => {
 });
 
 app.on('will-quit', () => {
+  // Unregister all global shortcuts
+  globalShortcut.unregisterAll();
+
   // Clean up tray
   if (tray) {
     tray.destroy();
