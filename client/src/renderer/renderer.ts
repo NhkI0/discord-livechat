@@ -1,10 +1,14 @@
 interface MediaMessage {
-  type: 'image' | 'video' | 'text';
+  type: 'image' | 'video' | 'gif';
   url?: string;
   content?: string;
   author: string;
   timestamp: number;
   filename?: string;
+  metadata?: {
+    gifUrl?: string;
+    thumbnailUrl?: string;
+  };
 }
 
 class LivechatRenderer {
@@ -54,8 +58,8 @@ class LivechatRenderer {
       this.displayImage(message);
     } else if (message.type === 'video') {
       this.displayVideo(message);
-    } else if (message.type === 'text') {
-      return;
+    } else if (message.type === 'gif') {
+      this.displayGif(message);
     }
   }
 
@@ -101,6 +105,27 @@ class LivechatRenderer {
     if (message.content) {
       this.showText(message.content);
     }
+  }
+
+  private displayGif(message: MediaMessage): void {
+    this.clearCurrentMedia();
+
+    const img = document.createElement('img');
+    img.id = 'current-media';
+    img.src = message.url!;
+    img.alt = message.filename || 'Tenor GIF';
+
+    const container = document.getElementById('media-container')!;
+    container.appendChild(img);
+    this.mediaElement = img;
+
+    if (message.content) {
+      this.showText(message.content);
+    }
+
+    this.hideMediaTimeout = window.setTimeout(() => {
+      this.hideMedia();
+    }, this.IMAGE_DISPLAY_DURATION);
   }
 
   private showText(content: string): void {
