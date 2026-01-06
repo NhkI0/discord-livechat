@@ -1,10 +1,22 @@
-import { Client, GatewayIntentBits, Message, Attachment } from "discord.js";
+import { Client, GatewayIntentBits, Message, Attachment, ActivityType } from "discord.js";
 import { MediaMessage } from "../types";
 
 export class DiscordBot {
     private client: Client;
     private readonly channelId: string;
     private onMediaCallBack?: (message: MediaMessage) => void;
+    public numberUsers: number = 0;
+
+    public setStatus(): void {
+        // @ts-ignore
+        this.client.user.setPresence({
+            activities: [{
+                name: `${this.numberUsers} online`,
+                type: ActivityType.Watching,
+            }],
+            status: 'online'
+        });
+    }
 
     constructor(token: string, channelId: string) {
         this.channelId = channelId;
@@ -87,6 +99,7 @@ export class DiscordBot {
     private setupEventHandlers(token: string): void {
         this.client.on("ready", () => {
             console.log(`Discord bot logged in as ${this.client.user?.tag}`);
+            this.setStatus()
         });
 
         this.client.on('messageCreate', (message) => {
