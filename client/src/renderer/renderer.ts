@@ -1,10 +1,14 @@
 interface MediaMessage {
-  type: 'image' | 'video' | 'text';
+  type: 'image' | 'video' | 'gif';
   url?: string;
   content?: string;
   author: string;
   timestamp: number;
   filename?: string;
+  metadata?: {
+    gifUrl?: string;
+    thumbnailUrl?: string;
+  };
 }
 
 class LivechatRenderer {
@@ -20,6 +24,25 @@ class LivechatRenderer {
   constructor() {
     this.textOverlay = document.getElementById('text-overlay') as HTMLDivElement;
     this.connectWebSocket();
+    this.setupKeyboardShortcuts();
+  }
+
+  private setupKeyboardShortcuts(): void {
+    // Listen for skip-media IPC event from main process (global shortcuts)
+    if ((window as any).electronAPI) {
+      (window as any).electronAPI.onSkipMedia(() => {
+        console.log('📨 Received skip-media IPC event');
+        if (this.mediaElement) {
+          console.log('⏭️ Skipping current media via global keyboard shortcut');
+          this.hideMedia();
+        } else {
+          console.log('ℹ️ No media currently playing to skip');
+        }
+      });
+      console.log('✅ Keyboard shortcut listener registered in renderer');
+    } else {
+      console.error('❌ electronAPI not available - shortcuts will not work');
+    }
   }
 
   private connectWebSocket(): void {
@@ -54,8 +77,8 @@ class LivechatRenderer {
       this.displayImage(message);
     } else if (message.type === 'video') {
       this.displayVideo(message);
-    } else if (message.type === 'text') {
-      return;
+    } else if (message.type === 'gif') {
+      this.displayGif(message);
     }
   }
 
@@ -101,6 +124,27 @@ class LivechatRenderer {
     if (message.content) {
       this.showText(message.content);
     }
+  }
+
+  private displayGif(message: MediaMessage): void {
+    this.clearCurrentMedia();
+
+    const img = document.createElement('img');
+    img.id = 'current-media';
+    img.src = message.url!;
+    img.alt = message.filename || 'Tenor GIF';
+
+    const container = document.getElementById('media-container')!;
+    container.appendChild(img);
+    this.mediaElement = img;
+
+    if (message.content) {
+      this.showText(message.content);
+    }
+
+    this.hideMediaTimeout = window.setTimeout(() => {
+      this.hideMedia();
+    }, this.IMAGE_DISPLAY_DURATION);
   }
 
   private showText(content: string): void {

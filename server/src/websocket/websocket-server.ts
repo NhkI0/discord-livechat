@@ -1,9 +1,11 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { MediaMessage } from "../types";
+import { DiscordBot } from '../bot/discord-client';
 
 export class LivechatWebSocketServer {
     private wss: WebSocketServer;
     private clients: Set<WebSocket> = new Set();
+    private bot: DiscordBot = new DiscordBot(process.env.DISCORD_BOT_TOKEN!, process.env.DISCORD_CHANNEL_ID!);
 
     constructor(port: number) {
         this.wss = new WebSocketServer({
@@ -19,10 +21,14 @@ export class LivechatWebSocketServer {
         this.wss.on('connection', (ws: WebSocket) => {
             console.log('🔗 New client connected');
             this.clients.add(ws);
+            this.bot.numberUsers += 1;
+            this.bot.setStatus()
 
             ws.on('close', () => {
                 console.log('❌ Client disconnected');
                 this.clients.delete(ws);
+                this.bot.numberUsers -= 1;
+                this.bot.setStatus()
             });
 
             ws.on('error', (err: Error) => {
