@@ -11,6 +11,13 @@ interface MediaMessage {
   };
 }
 
+interface MediaRegionSettings {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 class LivechatRenderer {
   private ws: WebSocket | null = null;
   private mediaElement: HTMLImageElement | HTMLVideoElement | null = null;
@@ -18,30 +25,281 @@ class LivechatRenderer {
   private hideMediaTimeout: number | null = null;
 
   private readonly IMAGE_DISPLAY_DURATION = 6000;
-  // Read WebSocket URL from config or use default
   private readonly WS_URL = (window as any).WEBSOCKET_SERVER_URL || 'ws://localhost:8080';
 
+  // This display's screen-absolute offset (from URL query params)
+  private displayOffset: MediaRegionSettings;
+
+  // Current media region in screen-absolute coordinates
+  private currentSettings: MediaRegionSettings;
+
+  // Edit mode
+  private editModeActive = false;
+  private editOverlay: HTMLDivElement | null = null;
+  private editKeyHandler: ((e: KeyboardEvent) => void) | null = null;
+
   constructor() {
+    const params = new URLSearchParams(window.location.search);
+    this.displayOffset = {
+      x: parseInt(params.get('dx') || '0'),
+      y: parseInt(params.get('dy') || '0'),
+      width: parseInt(params.get('dw') || String(window.innerWidth)),
+      height: parseInt(params.get('dh') || String(window.innerHeight)),
+    };
+
+    this.currentSettings = { ...this.displayOffset };
+
     this.textOverlay = document.getElementById('text-overlay') as HTMLDivElement;
     this.connectWebSocket();
     this.setupKeyboardShortcuts();
+    this.loadAndApplySettings();
+    this.setupSettingsListeners();
+  }
+
+  private toLocal(settings: MediaRegionSettings): MediaRegionSettings {
+    return {
+      x: settings.x - this.displayOffset.x,
+      y: settings.y - this.displayOffset.y,
+      width: settings.width,
+      height: settings.height,
+    };
+  }
+  private toScreenX(clientX: number): number {
+    return clientX + this.displayOffset.x;
+  }
+  private toScreenY(clientY: number): number {
+    return clientY + this.displayOffset.y;
+  }
+
+  private async loadAndApplySettings(): Promise<void> {
+    const api = (window as any).electronAPI;
+    if (api?.getMediaSettings) {
+      const settings = await api.getMediaSettings();
+      this.applyRegionSettings(settings);
+    }
+  }
+
+  private setupSettingsListeners(): void {
+    const api = (window as any).electronAPI;
+    if (!api) return;
+
+    if (api.onMediaSettingsChanged) {
+      api.onMediaSettingsChanged((settings: MediaRegionSettings) => {
+        this.applyRegionSettings(settings);
+      });
+    }
+
+    if (api.onEnterEditMode) {
+      api.onEnterEditMode((region: MediaRegionSettings) => {
+        this.startEditMode(region);
+      });
+    }
+
+    if (api.onExitEditMode) {
+      api.onExitEditMode(() => {
+        this.stopEditMode();
+      });
+    }
+
+    if (api.onUpdateEditRegion) {
+      api.onUpdateEditRegion((region: MediaRegionSettings) => {
+        this.updateEditRegionVisual(region);
+      });
+    }
+  }
+
+  private applyRegionSettings(settings: MediaRegionSettings): void {
+    this.currentSettings = { ...settings };
+    const local = this.toLocal(settings);
+    const container = document.getElementById('media-container')!;
+
+    container.style.position = 'absolute';
+    container.style.flex = 'none';
+    container.style.left = local.x + 'px';
+    container.style.top = local.y + 'px';
+    container.style.width = local.width + 'px';
+    container.style.height = local.height + 'px';
+  }
+
+  private startEditMode(region: MediaRegionSettings): void {
+    if (this.editModeActive) return;
+    this.editModeActive = true;
+
+    const local = this.toLocal(region);
+
+    // Dark backdrop covering this display
+    this.editOverlay = document.createElement('div');
+    this.editOverlay.id = 'edit-overlay';
+    Object.assign(this.editOverlay.style, {
+      position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+      zIndex: '10000', cursor: 'default', pointerEvents: 'auto',
+      background: 'rgba(0, 0, 0, 0.3)',
+    });
+
+    const regionBox = document.createElement('div');
+    regionBox.id = 'edit-region';
+    Object.assign(regionBox.style, {
+      position: 'absolute',
+      left: local.x + 'px',
+      top: local.y + 'px',
+      width: local.width + 'px',
+      height: local.height + 'px',
+      border: '3px dashed #00ff88',
+      background: 'rgba(0, 255, 136, 0.1)',
+      cursor: 'move',
+      boxSizing: 'border-box',
+    });
+
+    const corners: { id: string; cursor: string; pos: Record<string, string> }[] = [
+      { id: 'nw', cursor: 'nw-resize', pos: { top: '-6px', left: '-6px' } },
+      { id: 'ne', cursor: 'ne-resize', pos: { top: '-6px', right: '-6px' } },
+      { id: 'sw', cursor: 'sw-resize', pos: { bottom: '-6px', left: '-6px' } },
+      { id: 'se', cursor: 'se-resize', pos: { bottom: '-6px', right: '-6px' } },
+    ];
+
+    for (const corner of corners) {
+      const handle = document.createElement('div');
+      handle.dataset.handle = corner.id;
+      Object.assign(handle.style, {
+        position: 'absolute',
+        width: '14px', height: '14px',
+        background: '#00ff88', border: '2px solid #fff',
+        cursor: corner.cursor, zIndex: '1', borderRadius: '2px',
+        ...corner.pos,
+      });
+      regionBox.appendChild(handle);
+    }
+
+    const label = document.createElement('div');
+    label.id = 'edit-label';
+    Object.assign(label.style, {
+      position: 'absolute', top: '-30px', left: '0',
+      background: 'rgba(0,0,0,0.85)', color: '#00ff88',
+      padding: '3px 10px', fontSize: '13px', fontFamily: 'Consolas, monospace',
+      borderRadius: '3px', whiteSpace: 'nowrap', pointerEvents: 'none',
+    });
+    label.textContent = this.formatLabel(region);
+    regionBox.appendChild(label);
+
+    this.editOverlay.appendChild(regionBox);
+
+    const doneBtn = document.createElement('button');
+    doneBtn.textContent = 'Done (ESC)';
+    Object.assign(doneBtn.style, {
+      position: 'fixed', bottom: '30px', left: '50%',
+      transform: 'translateX(-50%)',
+      padding: '12px 36px', fontSize: '16px',
+      background: '#00ff88', color: '#000', border: 'none',
+      borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold',
+      zIndex: '10001', fontFamily: "'Segoe UI', sans-serif",
+    });
+    doneBtn.addEventListener('click', () => {
+      (window as any).electronAPI?.finishEditMode();
+    });
+    this.editOverlay.appendChild(doneBtn);
+
+    document.body.appendChild(this.editOverlay);
+
+    this.editOverlay.addEventListener('mousedown', (e) => this.onEditMouseDown(e));
+    document.addEventListener('mousemove', (e) => this.onEditMouseMove(e));
+    document.addEventListener('mouseup', () => this.onEditMouseUp());
+
+    // ESC to finish
+    this.editKeyHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        (window as any).electronAPI?.finishEditMode();
+      }
+    };
+    document.addEventListener('keydown', this.editKeyHandler);
+  }
+
+  private onEditMouseDown(e: MouseEvent): void {
+    const target = e.target as HTMLElement;
+    const api = (window as any).electronAPI;
+    if (!api) return;
+
+    if (target.dataset.handle) {
+      api.sendEditMouseDown({
+        screenX: this.toScreenX(e.clientX),
+        screenY: this.toScreenY(e.clientY),
+        action: 'resize',
+        handle: target.dataset.handle,
+      });
+      e.preventDefault();
+      return;
+    }
+
+    if (target.id === 'edit-region' || target.id === 'edit-label') {
+      api.sendEditMouseDown({
+        screenX: this.toScreenX(e.clientX),
+        screenY: this.toScreenY(e.clientY),
+        action: 'drag',
+        handle: '',
+      });
+      e.preventDefault();
+      return;
+    }
+  }
+
+  private onEditMouseMove(e: MouseEvent): void {
+    if (!this.editModeActive) return;
+    (window as any).electronAPI?.sendEditMouseMove({
+      screenX: this.toScreenX(e.clientX),
+      screenY: this.toScreenY(e.clientY),
+    });
+  }
+
+  private onEditMouseUp(): void {
+    if (!this.editModeActive) return;
+    (window as any).electronAPI?.sendEditMouseUp();
+  }
+
+  private updateEditRegionVisual(region: MediaRegionSettings): void {
+    const regionBox = document.getElementById('edit-region');
+    const label = document.getElementById('edit-label');
+    if (!regionBox) return;
+
+    const local = this.toLocal(region);
+    regionBox.style.left = local.x + 'px';
+    regionBox.style.top = local.y + 'px';
+    regionBox.style.width = local.width + 'px';
+    regionBox.style.height = local.height + 'px';
+
+    if (label) label.textContent = this.formatLabel(region);
+  }
+
+  private formatLabel(r: MediaRegionSettings): string {
+    return `${Math.round(r.width)} x ${Math.round(r.height)} @ (${Math.round(r.x)}, ${Math.round(r.y)})`;
+  }
+
+  private stopEditMode(): void {
+    this.editModeActive = false;
+
+    if (this.editOverlay) {
+      this.editOverlay.remove();
+      this.editOverlay = null;
+    }
+
+    if (this.editKeyHandler) {
+      document.removeEventListener('keydown', this.editKeyHandler);
+      this.editKeyHandler = null;
+    }
   }
 
   private setupKeyboardShortcuts(): void {
-    // Listen for skip-media IPC event from main process (global shortcuts)
     if ((window as any).electronAPI) {
       (window as any).electronAPI.onSkipMedia(() => {
-        console.log('📨 Received skip-media IPC event');
+        console.log('Received skip-media IPC event');
         if (this.mediaElement) {
-          console.log('⏭️ Skipping current media via global keyboard shortcut');
+          console.log('Skipping current media via global keyboard shortcut');
           this.hideMedia();
         } else {
-          console.log('ℹ️ No media currently playing to skip');
+          console.log('No media currently playing to skip');
         }
       });
-      console.log('✅ Keyboard shortcut listener registered in renderer');
+      console.log('Keyboard shortcut listener registered in renderer');
     } else {
-      console.error('❌ electronAPI not available - shortcuts will not work');
+      console.error('electronAPI not available - shortcuts will not work');
     }
   }
 
@@ -50,7 +308,7 @@ class LivechatRenderer {
     this.ws = new WebSocket(this.WS_URL);
 
     this.ws.onopen = () => {
-      console.log('✅ Connected to WebSocket server');
+      console.log('Connected to WebSocket server');
       this.updateStatus('Connected', true);
     };
 
@@ -60,14 +318,13 @@ class LivechatRenderer {
     };
 
     this.ws.onerror = (error) => {
-      console.error('❌ WebSocket error:', error);
+      console.error('WebSocket error:', error);
       this.updateStatus('Error', false);
     };
 
     this.ws.onclose = () => {
-      console.log('❌ Disconnected from WebSocket');
+      console.log('Disconnected from WebSocket');
       this.updateStatus('Disconnected', false);
-      // Attempt reconnection after 3 seconds
       setTimeout(() => this.connectWebSocket(), 3000);
     };
   }
