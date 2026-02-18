@@ -24,17 +24,20 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
+            align-items: center;
+            justify-content: center;
             position: relative;
         }
 
         #media-container {
-            flex: 1;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 0;
             position: relative;
             pointer-events: none;
+            overflow: visible;
         }
 
         #current-media {
@@ -47,10 +50,9 @@
         }
 
         #text-overlay {
-            position: absolute;
-            bottom: 50px;
-            left: 50%;
-            transform: translateX(-50%);
+            margin-top: -20px;
+            position: relative;
+            z-index: 10;
             font-family: Impact, 'Arial Black', sans-serif;
             font-size: 3em;
             color: white;
