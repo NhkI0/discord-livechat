@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, screen } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { SettingsManager, type MediaRegionSettings } from './settings-manager';
 
 let overlayWindows: BrowserWindow[] = [];
@@ -7,6 +8,54 @@ let settingsWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let settingsManager: SettingsManager;
 let isEditMode = false;
+
+let mainWs: WebSocket | null = null;
+let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+function readWsUrl(): string {
+  const defaultUrl = 'ws://localhost:8080';
+  try {
+    const configPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'config.js')
+      : path.join(__dirname, '../config.js');
+    const content = fs.readFileSync(configPath, 'utf8');
+    const match = content.match(/^\s*window\.WEBSOCKET_SERVER_URL\s*=\s*['"]([^'"]+)['"]/m);
+    if (match) return match[1];
+  } catch (err) {
+    console.error('Failed to read WS URL from config.js:', err);
+  }
+  return defaultUrl;
+}
+
+function connectMainWebSocket(): void {
+  const url = readWsUrl();
+  console.log(`Main process connecting to WebSocket: ${url}`);
+
+  mainWs = new WebSocket(url);
+
+  mainWs.onopen = () => {
+    console.log('Main process WebSocket connected');
+  };
+
+  mainWs.onmessage = (event) => {
+    try {
+      const message = JSON.parse(event.data as string);
+      broadcastToOverlays('media-message', message);
+    } catch (err) {
+      console.error('Failed to parse WebSocket message:', err);
+    }
+  };
+
+  mainWs.onerror = (error) => {
+    console.error('Main process WebSocket error:', error);
+  };
+
+  mainWs.onclose = () => {
+    console.log('Main process WebSocket disconnected, reconnecting in 3s...');
+    mainWs = null;
+    wsReconnectTimer = setTimeout(() => connectMainWebSocket(), 3000);
+  };
+}
 
 const editState = {
   dragging: false,
@@ -439,6 +488,7 @@ app.on('ready', () => {
   createOverlayWindows();
   createTray();
   registerGlobalShortcuts();
+  connectMainWebSocket();
 });
 
 app.on('window-all-closed', () => {
@@ -455,6 +505,15 @@ app.on('activate', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+
+  if (wsReconnectTimer) {
+    clearTimeout(wsReconnectTimer);
+    wsReconnectTimer = null;
+  }
+  if (mainWs) {
+    mainWs.close();
+    mainWs = null;
+  }
 
   if (tray) {
     tray.destroy();

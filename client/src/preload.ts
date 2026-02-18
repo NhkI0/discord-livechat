@@ -5,6 +5,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('skip-media', callback);
   },
 
+  onMediaMessage: (callback: (message: any) => void) => {
+    ipcRenderer.on('media-message', (_event: any, message: any) => callback(message));
+  },
+
   getMediaSettings: () => ipcRenderer.invoke('get-media-settings'),
   getDisplayBounds: () => ipcRenderer.invoke('get-display-bounds'),
   saveMediaSettings: (settings: { x: number; y: number; width: number; height: number }) =>

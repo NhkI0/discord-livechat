@@ -19,13 +19,11 @@ interface MediaRegionSettings {
 }
 
 class LivechatRenderer {
-  private ws: WebSocket | null = null;
   private mediaElement: HTMLImageElement | HTMLVideoElement | null = null;
   private textOverlay: HTMLDivElement;
   private hideMediaTimeout: number | null = null;
 
   private readonly IMAGE_DISPLAY_DURATION = 6000;
-  private readonly WS_URL = (window as any).WEBSOCKET_SERVER_URL || 'ws://localhost:8080';
 
   // This display's screen-absolute offset (from URL query params)
   private displayOffset: MediaRegionSettings;
@@ -50,7 +48,7 @@ class LivechatRenderer {
     this.currentSettings = { ...this.displayOffset };
 
     this.textOverlay = document.getElementById('text-overlay') as HTMLDivElement;
-    this.connectWebSocket();
+    this.setupMediaListener();
     this.setupKeyboardShortcuts();
     this.loadAndApplySettings();
     this.setupSettingsListeners();
@@ -303,30 +301,15 @@ class LivechatRenderer {
     }
   }
 
-  private connectWebSocket(): void {
-    console.log(`Connecting to WebSocket server: ${this.WS_URL}`);
-    this.ws = new WebSocket(this.WS_URL);
-
-    this.ws.onopen = () => {
-      console.log('Connected to WebSocket server');
-      this.updateStatus('Connected', true);
-    };
-
-    this.ws.onmessage = (event) => {
-      const message: MediaMessage = JSON.parse(event.data);
+  private setupMediaListener(): void {
+    const api = (window as any).electronAPI;
+    if (!api?.onMediaMessage) {
+      console.error('onMediaMessage not available in electronAPI');
+      return;
+    }
+    api.onMediaMessage((message: MediaMessage) => {
       this.handleMessage(message);
-    };
-
-    this.ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      this.updateStatus('Error', false);
-    };
-
-    this.ws.onclose = () => {
-      console.log('Disconnected from WebSocket');
-      this.updateStatus('Disconnected', false);
-      setTimeout(() => this.connectWebSocket(), 3000);
-    };
+    });
   }
 
   private handleMessage(message: MediaMessage): void {
@@ -438,9 +421,6 @@ class LivechatRenderer {
     }
   }
 
-  private updateStatus(text: string, connected: boolean): void {
-    console.log(`WebSocket status: ${text}`);
-  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
