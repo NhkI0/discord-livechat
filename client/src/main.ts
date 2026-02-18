@@ -15,9 +15,7 @@ let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 function readWsUrl(): string {
   const defaultUrl = 'ws://localhost:8080';
   try {
-    const configPath = app.isPackaged
-      ? path.join(process.resourcesPath, 'config.js')
-      : path.join(__dirname, '../config.js');
+    const configPath = path.join(__dirname, '../config.js');
     const content = fs.readFileSync(configPath, 'utf8');
     const match = content.match(/^\s*window\.WEBSOCKET_SERVER_URL\s*=\s*['"]([^'"]+)['"]/m);
     if (match) return match[1];
