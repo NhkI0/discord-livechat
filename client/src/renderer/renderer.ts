@@ -428,6 +428,11 @@ class LivechatRenderer {
     }
 
     if (this.mediaElement) {
+      if (this.mediaElement instanceof HTMLVideoElement) {
+        this.mediaElement.pause();
+        this.mediaElement.src = '';
+        this.mediaElement.load();
+      }
       this.mediaElement.remove();
       this.mediaElement = null;
     }
