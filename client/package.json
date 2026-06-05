@@ -1,6 +1,6 @@
 {
   "name": "discord-livechat-client",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Discord Livechat Client - Display overlay for media from server",
   "main": "dist/main.js",
   "scripts": {

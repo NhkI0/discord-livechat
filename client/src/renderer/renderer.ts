@@ -106,8 +106,28 @@ class LivechatRenderer {
     }
   }
 
+  // True when the configured region's center lies within this window's display.
+  // Half-open intervals guarantee exactly one display claims a region whose edge
+  // sits on a shared monitor boundary.
+  private ownsRegion(): boolean {
+    const cx = this.currentSettings.x + this.currentSettings.width / 2;
+    const cy = this.currentSettings.y + this.currentSettings.height / 2;
+    const d = this.displayOffset;
+    return (
+      cx >= d.x && cx < d.x + d.width &&
+      cy >= d.y && cy < d.y + d.height
+    );
+  }
+
   private applyRegionSettings(settings: MediaRegionSettings): void {
     this.currentSettings = { ...settings };
+
+    // If the region moved off this display, stop any media still playing here
+    // so its audio doesn't keep sounding off-screen.
+    if (!this.ownsRegion()) {
+      this.hideMedia();
+    }
+
     const local = this.toLocal(settings);
     const container = document.getElementById('media-container')!;
 
@@ -313,6 +333,10 @@ class LivechatRenderer {
   }
 
   private handleMessage(message: MediaMessage): void {
+    // Every overlay window receives every message; only the window whose display
+    // contains the region acts on it, so media renders and plays audio once.
+    if (!this.ownsRegion()) return;
+
     if (message.type === 'image') {
       this.displayImage(message);
     } else if (message.type === 'video') {
