@@ -24,7 +24,7 @@ function startServer() {
 
     discordBot = new DiscordBot(botToken, channelId);
     discordBot.onMedia((message) => {
-        wsServer?.broadcast(message);
+        wsServer?.enqueue(message);
     });
 
     console.log('\n✅ Server is running!');
