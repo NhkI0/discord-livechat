@@ -11,12 +11,11 @@ export class LivechatWebSocketServer {
     private queue: MediaMessage[] = [];
     private currentItem: MediaMessage | null = null;
     private currentItemId: number | null = null;
-    private expectedAcks: Set<WebSocket> = new Set();
-    private ackedClients: Set<WebSocket> = new Set();
     private advanceTimer: NodeJS.Timeout | null = null;
     private nextId = 0;
 
-    // Safety backstop: advance the queue even if a client never acks (e.g. it crashed).
+    // Safety backstop: advance the queue even if no client ever acks (e.g. no
+    // viewers connected, or a client crashed mid-display).
     private readonly MAX_ITEM_DURATION = parseInt(process.env.MAX_MEDIA_DURATION_MS || '60000', 10);
 
     constructor(port: number) {
@@ -37,7 +36,7 @@ export class LivechatWebSocketServer {
             this.bot.setStatus()
 
             ws.on('message', (data) => {
-                this.handleClientMessage(ws, data.toString());
+                this.handleClientMessage(data.toString());
             });
 
             ws.on('close', () => {
@@ -58,14 +57,19 @@ export class LivechatWebSocketServer {
 
     private removeClient(ws: WebSocket): void {
         this.clients.delete(ws);
-        // If we were waiting on this client to finish the current item, stop waiting
-        // so a viewer leaving mid-item can't wedge the queue.
-        this.expectedAcks.delete(ws);
-        this.ackedClients.delete(ws);
-        this.maybeAdvance();
+        // If the last viewer leaves mid-item, don't sit on the backstop — drain.
+        if (this.currentItem !== null && this.countOpenClients() === 0) {
+            this.completeCurrent();
+        }
     }
 
-    private handleClientMessage(ws: WebSocket, raw: string): void {
+    private countOpenClients(): number {
+        let n = 0;
+        this.clients.forEach(c => { if (c.readyState === WebSocket.OPEN) n++; });
+        return n;
+    }
+
+    private handleClientMessage(raw: string): void {
         let msg: ClientMessage;
         try {
             msg = JSON.parse(raw);
@@ -73,14 +77,11 @@ export class LivechatWebSocketServer {
             return; // ignore non-JSON
         }
 
-        if (msg.type === 'media-done') {
-            // Ignore acks for items that are no longer current (stale/late acks) and
-            // acks from clients that weren't sent the current item (late joiners).
-            if (msg.id !== this.currentItemId || !this.expectedAcks.has(ws)) {
-                return;
-            }
-            this.ackedClients.add(ws);
-            this.maybeAdvance();
+        // Advance on the first ack for the current item. Stale/late acks (for an
+        // item that's no longer current) are ignored.
+        if (msg.type === 'media-done' && msg.id === this.currentItemId) {
+            console.log(`✅ Ack for item #${msg.id}; advancing queue`);
+            this.completeCurrent();
         }
     }
 
@@ -104,40 +105,27 @@ export class LivechatWebSocketServer {
         this.currentItem = next;
         this.currentItemId = next.id;
 
-        // Snapshot the viewers that receive this item; only they need to ack it.
-        this.expectedAcks = new Set();
-        this.ackedClients = new Set();
         const payload = JSON.stringify(next);
+        let sent = 0;
         this.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(payload);
-                this.expectedAcks.add(client);
+                sent++;
             }
         });
 
-        console.log(`📤 Dispatched ${next.type} (#${next.id}) to ${this.expectedAcks.size} client(s); ${this.queue.length} waiting`);
+        console.log(`📤 Dispatched ${next.type} (#${next.id}) to ${sent} client(s); ${this.queue.length} waiting`);
 
-        if (this.expectedAcks.size === 0) {
+        if (sent === 0) {
             // No viewers to ack — drain harmlessly (same as broadcasting to nobody).
             setImmediate(() => this.completeCurrent());
             return;
         }
 
         this.advanceTimer = setTimeout(() => {
-            console.log(`⏱️ Item #${this.currentItemId} timed out waiting for acks; advancing`);
+            console.log(`⏱️ Item #${this.currentItemId} timed out waiting for an ack; advancing`);
             this.completeCurrent();
         }, this.MAX_ITEM_DURATION);
-    }
-
-    // Advance once every still-connected viewer that received the item has acked it.
-    private maybeAdvance(): void {
-        if (this.currentItem === null) return;
-        for (const client of this.expectedAcks) {
-            if (client.readyState === WebSocket.OPEN && !this.ackedClients.has(client)) {
-                return; // still waiting on someone
-            }
-        }
-        this.completeCurrent();
     }
 
     private completeCurrent(): void {
@@ -147,8 +135,6 @@ export class LivechatWebSocketServer {
         }
         this.currentItem = null;
         this.currentItemId = null;
-        this.expectedAcks.clear();
-        this.ackedClients.clear();
         this.dispatchNext();
     }
 

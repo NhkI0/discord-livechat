@@ -5,8 +5,9 @@
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
+    "prestart": "npm run build",
     "start": "node dist/server.js",
-    "dev": "nodemon --watch src --ext ts --exec \"npm run build && npm start\""
+    "dev": "nodemon --watch src --ext ts --exec \"npm start\""
   },
   "keywords": ["discord", "websocket", "server"],
   "author": "Dopamine",
