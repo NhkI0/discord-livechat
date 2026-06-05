@@ -9,6 +9,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('media-message', (_event: any, message: any) => callback(message));
   },
 
+  // Tell the server (via main) that the current media finished or was skipped,
+  // so it can release the next queued item.
+  notifyMediaDone: (id: number | null) => {
+    ipcRenderer.send('media-done', id);
+  },
+
   getMediaSettings: () => ipcRenderer.invoke('get-media-settings'),
   getDisplayBounds: () => ipcRenderer.invoke('get-display-bounds'),
   saveMediaSettings: (settings: { x: number; y: number; width: number; height: number }) =>

@@ -366,6 +366,14 @@ function registerIpcHandlers() {
   ipcMain.on('edit-mouse-up', () => handleEditMouseUp());
 
   ipcMain.on('finish-edit-mode', () => finishEditMode());
+
+  // Forward media-done acks from the owner overlay renderer to the server so it
+  // can release the next queued item.
+  ipcMain.on('media-done', (_event, id: number | null) => {
+    if (mainWs && mainWs.readyState === WebSocket.OPEN) {
+      mainWs.send(JSON.stringify({ type: 'media-done', id }));
+    }
+  });
 }
 
 

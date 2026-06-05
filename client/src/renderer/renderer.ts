@@ -5,6 +5,7 @@ interface MediaMessage {
   author: string;
   timestamp: number;
   filename?: string;
+  id?: number;
   metadata?: {
     gifUrl?: string;
     thumbnailUrl?: string;
@@ -22,6 +23,8 @@ class LivechatRenderer {
   private mediaElement: HTMLImageElement | HTMLVideoElement | null = null;
   private textOverlay: HTMLDivElement;
   private hideMediaTimeout: number | null = null;
+  // Server-assigned id of the item currently displayed; echoed back on completion.
+  private currentItemId: number | null = null;
 
   private readonly IMAGE_DISPLAY_DURATION = 6000;
 
@@ -337,6 +340,8 @@ class LivechatRenderer {
     // contains the region acts on it, so media renders and plays audio once.
     if (!this.ownsRegion()) return;
 
+    this.currentItemId = message.id ?? null;
+
     if (message.type === 'image') {
       this.displayImage(message);
     } else if (message.type === 'video') {
@@ -377,13 +382,37 @@ class LivechatRenderer {
     video.autoplay = true;
     video.loop = false;
 
+    // Normal completion -> advance the queue.
     video.addEventListener('ended', () => {
       this.hideMedia();
+    });
+
+    // If the video can't be loaded/decoded (unsupported codec, network error),
+    // 'ended' never fires. Ack right away so the queue doesn't stall on the
+    // server's safety timeout.
+    video.addEventListener('error', () => {
+      console.error('Video failed to load, skipping:', message.url);
+      this.hideMedia();
+    });
+
+    // Safety net: if 'ended' doesn't fire (some streams/edge cases), fall back to
+    // the known duration so we advance near the real end rather than the backstop.
+    video.addEventListener('loadedmetadata', () => {
+      if (Number.isFinite(video.duration) && video.duration > 0) {
+        this.hideMediaTimeout = window.setTimeout(() => {
+          this.hideMedia();
+        }, video.duration * 1000 + 1000);
+      }
     });
 
     const container = document.getElementById('media-container')!;
     container.appendChild(video);
     this.mediaElement = video;
+
+    // Autoplay can be rejected; surface it instead of silently hanging.
+    video.play().catch((err) => {
+      console.warn('Video autoplay was blocked or failed:', err);
+    });
 
     if (message.content) {
       this.showText(message.content);
@@ -423,6 +452,11 @@ class LivechatRenderer {
 
   private hideMedia(): void {
     if (!this.mediaElement) return;
+
+    // Ack the server that this item is done (covers auto-hide, video end, and skip)
+    // so it can release the next queued item. Fires exactly once per displayed item.
+    (window as any).electronAPI?.notifyMediaDone(this.currentItemId);
+    this.currentItemId = null;
 
     this.clearCurrentMedia();
     this.hideText();
