@@ -116,13 +116,17 @@ export class DiscordBot {
             return;
         }
 
+        // Use cleanContent so mentions show readable names (@username, #channel,
+        // @role) instead of raw <@id> tokens.
+        const cleanContent = message.cleanContent;
+
         // Handle attachments (images/videos)
         if (message.attachments.size > 0) {
             message.attachments.forEach((attachment: Attachment) => {
                 const mediaMessage = this.processAttachment(
                     attachment,
                     message.author.username,
-                    message.content // Include text content with media
+                    cleanContent // Include text content with media
                 );
                 if (mediaMessage && this.onMediaCallBack) {
                     this.onMediaCallBack(mediaMessage);
@@ -131,7 +135,7 @@ export class DiscordBot {
             return;
         }
         if (message.content) {
-            const urls = this.extractUrls(message.content);
+            const urls = this.extractUrls(cleanContent);
 
             for (const url of urls) {
                 if (this.isTenorUrl(url)) {
@@ -140,7 +144,7 @@ export class DiscordBot {
                         const giftMessage: MediaMessage = {
                             type: 'gif',
                             url: gifUrl,
-                            content: message.content.replace(url, '').trim(),
+                            content: cleanContent.replace(url, '').trim(),
                             author: message.author.username,
                             timestamp: Date.now(),
                             metadata: {
